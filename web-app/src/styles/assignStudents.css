@@ -1,0 +1,163 @@
+.assign-students-container {
+  display: flex;
+  flex-direction: column;
+  margin-left: 250px;
+  padding: 2rem;
+  background-color: #f9f9f9;
+  min-height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.section-titles {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin-bottom: 2rem;
+  color: #05642d;
+}
+
+.highlight {
+  color: #05642d;
+}
+
+.table-containerr {
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+  max-width: 100%;
+}
+
+.animated-table {
+  width: 100%;
+  border-collapse: collapse;
+  transition: all 0.3s ease;
+}
+
+.animated-table thead {
+  background-color: #05642d;
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.animated-table th,
+.animated-table td {
+  padding: 0.9rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.animated-table th:first-child,
+.animated-table td:first-child {
+  text-align: center;
+}
+
+.animated-table input[type="checkbox"] {
+  cursor: pointer;
+  transform: scale(1.1);
+}
+
+.animated-table tbody tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+
+.animated-table tbody tr:hover {
+  background-color: #e0f5ea;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.assign-controls {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.assign-btn,
+.cancel-btn {
+  padding: 0.7rem 1.8rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  min-width: 140px;
+}
+
+.assign-btn {
+  background-color: #05642d;
+  color: white;
+}
+
+.assign-btn:hover {
+  background-color: #ffa500;
+}
+
+.cancel-btn {
+  background-color: #6c757d;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background-color: #495057;
+}
+
+.assign-pagination {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  gap: 0.5rem;
+  padding: 0 1rem;
+}
+
+.assign-pagination button {
+  background-color: #e6e6e6;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  color: #333;
+  transition: background-color 0.3s ease;
+  min-width: 40px;
+}
+
+.assign-pagination button:hover {
+  background-color: #cfd8dc;
+}
+
+.assign-pagination button.active {
+  background-color: #05642d;
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .assign-students-container {
+    margin-left: 0;
+    padding: 1rem;
+  }
+
+  .section-title {
+    font-size: 1.5rem;
+  }
+
+  .assign-btn,
+  .cancel-btn {
+    width: 100%;
+  }
+
+  .assign-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .assign-pagination {
+    justify-content: center;
+  }
+}
