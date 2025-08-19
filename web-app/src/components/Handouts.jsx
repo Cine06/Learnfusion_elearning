@@ -1,102 +1,54 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../utils/supabaseClient';
-import '../styles/Handouts.css';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { supabase } from '../utils/supabaseClient'; 
+import '../styles/Handouts.css';
 
 const Handouts = () => {
+  const navigate = useNavigate();
   const [lessons, setLessons] = useState([]);
-  const [topics, setTopics] = useState([]);
-
-  const fetchLessonsAndTopics = async () => {
-    try {
-      const { data: lessonData, error: lessonError } = await supabase
-        .from('lessons')
-        .select('*')
-        .order('title', { ascending: true });
-
-      if (lessonError) throw lessonError;
-      setLessons(lessonData);
-
-      const { data: topicData, error: topicError } = await supabase
-        .from('topics')
-        .select('*');
-
-      if (topicError) throw topicError;
-      setTopics(topicData);
-    } catch (error) {
-      console.error('Fetch error:', error.message);
-    }
-  };
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchLessonsAndTopics();
+    const fetchLessonsAndTopics = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const { data: lessonsData, error: lessonsError } = await supabase
+          .from('lessons')
+          .select('id, title') 
+          .order('created_at', { ascending: true });
 
-    const lessonsChannel = supabase
-      .channel('lessons-sub')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lessons' }, handleLessonChange)
-      .subscribe();
+        if (lessonsError) throw lessonsError;
 
-    const topicsChannel = supabase
-      .channel('topics-sub')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'topics' }, handleTopicChange)
-      .subscribe();
+        const lessonsWithTopics = await Promise.all(
+          lessonsData.map(async (lesson) => {
+            const { data: topicsData, error: topicsError } = await supabase
+              .from('topics')
+              .select('id, title')
+              .eq('lesson_id', lesson.id)
+              .order('created_at', { ascending: true });
 
-    return () => {
-      supabase.removeChannel(lessonsChannel);
-      supabase.removeChannel(topicsChannel);
+            if (topicsError) console.warn(`Error fetching topics for lesson ${lesson.id}:`, topicsError.message);
+            return { ...lesson, topics: topicsData || [] };
+          })
+        );
+        setLessons(lessonsWithTopics);
+      } catch (err) {
+        console.error('Error fetching handouts data:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
     };
+
+    fetchLessonsAndTopics();
   }, []);
 
-  const handleLessonChange = ({ eventType, new: newLesson, old: oldLesson }) => {
-    setLessons(prev => {
-      switch (eventType) {
-        case 'INSERT':
-          return [...prev, newLesson];
-        case 'UPDATE':
-          return prev.map(lesson => lesson.id === newLesson.id ? newLesson : lesson);
-        case 'DELETE':
-          return prev.filter(lesson => lesson.id !== oldLesson.id);
-        default:
-          return prev;
-      }
-    });
+  const handleLessonClick = (lessonId) => {
+    navigate(`/lesson/${lessonId}`);
   };
-
-  const handleTopicChange = ({ eventType, new: newTopic, old: oldTopic }) => {
-    setTopics(prev => {
-      switch (eventType) {
-        case 'INSERT':
-          return [...prev, newTopic];
-        case 'UPDATE':
-          return prev.map(topic => topic.id === newTopic.id ? newTopic : topic);
-        case 'DELETE':
-          return prev.filter(topic => topic.id !== oldTopic.id);
-        default:
-          return prev;
-      }
-    });
-  };
-
-  const handleComplete = async (index) => {
-    const lesson = lessons[index];
-    if (!lesson) return;
-
-    try {
-      await supabase.from('lessons').update({ completed: true }).eq('id', lesson.id);
-
-      const nextLesson = lessons[index + 1];
-      if (nextLesson) {
-        await supabase.from('lessons').update({ unlocked: true }).eq('id', nextLesson.id);
-      }
-
-      fetchLessonsAndTopics();
-    } catch (error) {
-      console.error('Error updating lesson:', error.message);
-    }
-  };
-
-  const getTopicsForLesson = (lessonId) =>
-    topics.filter(topic => String(topic.lesson_id) === String(lessonId));
 
   return (
     <div className="handouts-layout">
@@ -106,43 +58,38 @@ const Handouts = () => {
           <h2 className="section-title">Handouts</h2>
         </div>
 
-        <div className="lessons-grid">
-          {lessons.map((lesson, index) => {
-            const relatedTopics = getTopicsForLesson(lesson.id);
-            return (
-              <div key={lesson.id} className={`lesson-card ${lesson.unlocked ? '' : 'locked'}`}>
-                {!lesson.unlocked && (
-                  <div className="locked-overlay">
-                    <div className="lock-icon" title="Locked 🔒" />
+        {loading && <p>Loading lessons...</p>}
+        {error && <p style={{ color: 'red' }}>Error loading lessons: {error}</p>}
+        {!loading && !error && (
+          <div className="lessons-grid">
+            {lessons.length === 0 ? (
+              <p>No lessons available yet.</p>
+            ) : (
+              lessons.map((lesson) => (
+                <div
+                  key={lesson.id}
+                  className="lesson-card"
+                  onClick={() => handleLessonClick(lesson.id)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className="lesson-header">
+                    <h3>{lesson.title}</h3>
                   </div>
-                )}
 
-                <div className="lesson-header">
-                  <h3>{lesson.title}</h3>
-                  {lesson.completed && <span className="completed-label">Completed</span>}
-                </div>
-
-                <div className="topics-section">
-                  {relatedTopics.length > 0 ? (
-                    <ul className="topic-title-list">
-                      {relatedTopics.map(topic => (
-                        <li key={topic.id}>{topic.title}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="no-topics-msg">Programming Paradigms.</p>
-                  )}
-
-                  {lesson.unlocked && !lesson.completed && (
-                    <button className="complete-btn" onClick={() => handleComplete(index)}>
-                      Mark as Complete
-                    </button>
+                  {lesson.topics && lesson.topics.length > 0 && (
+                    <div className="topics-section">
+                      <ul className="topic-title-list">
+                        {lesson.topics.map((topic) => (
+                          <li key={topic.id}>{topic.title}</li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              ))
+            )}
+          </div>
+        )}
       </main>
     </div>
   );

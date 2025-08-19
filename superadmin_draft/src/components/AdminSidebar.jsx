@@ -11,64 +11,75 @@ const AdminSidebar = () => {
   const [adminId, setAdminId] = useState(null);
 
   useEffect(() => {
-    const storedAdminId = localStorage.getItem("adminId");
-    const storedAdminName = localStorage.getItem("adminName");
-    const storedProfilePic = localStorage.getItem("adminProfilePic");
-
-    if (storedAdminId) {
-      setAdminId(storedAdminId);
-      setAdminName(storedAdminName || "Admin");
-      setProfilePic(storedProfilePic || defaultProfile);
+    const storedUser = JSON.parse(localStorage.getItem("user"));
+    if (storedUser && storedUser.role === "Admin") {
+      setAdminId(storedUser.id);
+      setAdminName(`${storedUser.first_name} ${storedUser.last_name}`);
+      setProfilePic(storedUser.profile_picture || defaultProfile);
+      // Optionally, fetch fresh details if profile_picture might be stale
+      // fetchAdminDetails(storedUser.id, storedUser.profile_picture);
     } else {
-      const storedUser = JSON.parse(localStorage.getItem("user"));
-      if (storedUser && storedUser.role === "Admin") {
-        setAdminId(storedUser.id);
-        setAdminName(`${storedUser.first_name} ${storedUser.last_name}`);
-        setProfilePic(storedUser.profile_picture || defaultProfile);
-      }
+      // Handle case where user is not found or not an admin, e.g., navigate to login
+      navigate("/");
     }
-  }, []);
+  }, [navigate]);
 
-  const fetchAdminDetails = async (adminId) => {
-    try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("first_name, last_name, profile_picture")
-        .eq("id", adminId)
-        .single();
-
-      if (error) throw error;
-
-      setAdminName(`${data.first_name} ${data.last_name}`);
-      setProfilePic(data.profile_picture || defaultProfile);
-
-      localStorage.setItem("adminName", `${data.first_name} ${data.last_name}`);
-      localStorage.setItem("adminProfilePic", data.profile_picture || "");
-    } catch (error) {
-      console.error("Error fetching admin details:", error.message);
-    }
-  };
+  // This function can be used if you need to refresh details not stored in localStorage's user object
+  // or if the localStorage user object might be stale.
+  // const fetchAdminDetails = async (currentAdminId, currentProfilePic) => {
+  //   try {
+  //     const { data, error } = await supabase
+  //       .from("users")
+  //       .select("first_name, last_name, profile_picture")
+  //       .eq("id", currentAdminId)
+  //       .single();
+  //     if (error) throw error;
+  //     setAdminName(`${data.first_name} ${data.last_name}`);
+  //     setProfilePic(data.profile_picture || defaultProfile);
+  //   } catch (error) {
+  //     console.error("Error fetching admin details:", error.message);
+  //     // Fallback to localStorage if fetch fails but user is authenticated
+  //     setProfilePic(currentProfilePic || defaultProfile);
+  //   }
+  // };
 
   const handleProfileChange = async (event) => {
     const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64ProfilePic = reader.result; 
-        setProfilePic(base64ProfilePic); 
+    if (!file || !adminId) return;
 
-        const { error } = await supabase
-          .from("users")
-          .update({ profile_picture: base64ProfilePic })
-          .eq("id", adminId);
+    try {
+      const filePath = `avatars/${adminId}/${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("profile-pictures") // Ensure this bucket exists and has appropriate policies
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true, // Overwrite if file already exists
+        });
 
-        if (error) {
-          console.error("Error updating profile picture:", error.message);
-        } else {
-          localStorage.setItem("adminProfilePic", base64ProfilePic);
-        }
-      };
-      reader.readAsDataURL(file); 
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from("profile-pictures").getPublicUrl(filePath);
+      const publicURL = urlData.publicUrl;
+
+      const { error: dbError } = await supabase
+        .from("users")
+        .update({ profile_picture: publicURL })
+        .eq("id", adminId)
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      setProfilePic(publicURL);
+      // Update localStorage user object if necessary
+      const storedUser = JSON.parse(localStorage.getItem("user"));
+      if (storedUser && storedUser.id === adminId) {
+        storedUser.profile_picture = publicURL;
+        localStorage.setItem("user", JSON.stringify(storedUser));
+      }
+    } catch (error) {
+      console.error("Error updating profile picture:", error.message);
+      alert("Failed to update profile picture.");
     }
   };
 

@@ -220,4 +220,17 @@
 .pulse {
   animation: pulse 2s infinite ease-in-out;
 }
+.clickable-notification {
+  cursor: pointer;
+}
 
+.clickable-notification:hover {
+  background-color: #f0f0f0; /* Or any other hover effect you prefer */
+}
+
+.notification-timestamp-message {
+  font-size: 0.8em; /* Makes the font smaller */
+  color: #555;     /* A slightly lighter color, adjust as needed */
+  margin-top: 3px;  /* Adds a small space below the title */
+  display: block;   /* Ensures it takes its own line */
+}

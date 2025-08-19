@@ -1,39 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import "../styles/Sidebar.css";
-import { NavLink, useNavigate } from "react-router-dom";
-import { supabase } from "../utils/supabaseClient";
+import { NavLink } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 const Sidebar = () => {
-  const navigate = useNavigate();
-  const [userData, setUserData] = useState(null);
-
+  const { setUser } = useAuth();
   const handleLogout = () => {
-    localStorage.clear(); 
-    navigate("/"); 
+    localStorage.clear();
+    setUser(null); // Clear user from AuthContext
+    window.location.href = "/";
   };
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const user = sessionData?.session?.user;
-
-      if (user) {
-        const { data, error } = await supabase
-          .from("users")
-          .select("*")
-          .eq("email", user.email)
-          .single();
-
-        if (error) {
-          console.error("Error fetching user data:", error);
-        } else {
-          setUserData(data);
-        }
-      }
-    };
-
-    fetchUserData();
-  }, []);
 
   return (
     <div className="sidebar-container">
@@ -42,18 +18,6 @@ const Sidebar = () => {
           <img src="/logo.png" alt="LearnFusion Logo" />
           <h2><span className="highlight">Learn</span>Fusion</h2>
         </div>
-
-        {userData && (
-          <div className="sidebar-user-info">
-            <img
-              src={userData.profile_picture || "/default-avatar.png"}
-              alt="Profile"
-              className="sidebar-avatar"
-            />
-            <p>{`${userData.first_name} ${userData.last_name}`}</p>
-            <p className="role">{userData.role}</p>
-          </div>
-        )}
 
         <ul className="sidebar-nav">
           <li>

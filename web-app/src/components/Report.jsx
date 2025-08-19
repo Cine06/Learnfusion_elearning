@@ -3,56 +3,177 @@ import { useParams, useNavigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable"; 
 import Sidebar from "./Sidebar";
+import { supabase } from "../utils/supabaseClient"; 
 import "../styles/report.css";
 
 const Report = () => {
-  const { sectionName, lessonName } = useParams();
+  const { sectionName, lessonName } = useParams(); // lessonName is used for the report title
   const navigate = useNavigate();
   const [reportData, setReportData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const totalPages = Math.ceil(reportData.length / itemsPerPage);
 
   useEffect(() => {
-    fetchLessonReport();
-  }, []);
+    if (sectionName) {
+      fetchLessonReport();
+    } else {
+      setReportData([]);
+      setLoading(false);
+    }
+  }, [sectionName]); // Re-fetch if sectionName changes
 
   const fetchLessonReport = async () => {
-    const mockData = [
-      {
-        id: 1,
-        name: "Francine Puzon",
-        quizzes: { "Quiz 1": 8, "Quiz 2": 10 },
-        assignments: { "Assignment 1": 9, "Assignment 2": 9 },
-        progress: "90%",
-        status: "Pass"
-      },
-      {
-        id: 2,
-        name: "Hazel Lachica",
-        quizzes: { "Quiz 1": 5, "Quiz 2": 6 },
-        assignments: { "Assignment 1": 5, "Assignment 2": 3 },
-        progress: "60%",
-        status: "Fail"
-      },
-      {
-        id: 3,
-        name: "Christian Atanque",
-        quizzes: { "Quiz 1": 10, "Quiz 2": 10 },
-        assignments: { "Assignment 1": 10, "Assignment 2": 10 },
-        progress: "100%",
-        status: "Pass"
-      },
-      {
-        id: 4,
-        name: "Razec Hernandez",
-        quizzes: { "Quiz 1": 2, "Quiz 2": 2 },
-        assignments: { "Assignment 1": 5, "Assignment 2": 0 },
-        progress: "50%",
-        status: "Fail"
+    setLoading(true);
+    try {
+      // 1. Get Section ID
+      const { data: sectionData, error: sectionError } = await supabase
+        .from("sections")
+        .select("id")
+        .eq("section_name", sectionName)
+        .single();
+
+      if (sectionError || !sectionData) {
+        console.error("Error fetching section:", sectionError?.message || "Section not found.");
+        setReportData([]);
+        setLoading(false);
+        return;
       }
-    ];
-    setReportData(mockData);
+      const sectionId = sectionData.id;
+
+      // 2. Get Students in Section
+      const { data: students, error: studentsError } = await supabase
+        .from("users")
+        .select("id, first_name, last_name")
+        .eq("section_id", sectionId)
+        .eq("role", "Student");
+
+      if (studentsError) {
+        console.error("Error fetching students:", studentsError.message);
+        setReportData([]);
+        setLoading(false);
+        return;
+      }
+      if (!students || students.length === 0) {
+        setReportData([]);
+        setLoading(false);
+        return;
+      }
+
+      // 3. Get IDs of Assessments assigned to the Section
+      const { data: assignedAssessments, error: assignedAssessmentsError } = await supabase
+        .from("assigned_assessments")
+        .select("assessment_id")
+        .eq("section_id", sectionId);
+
+      if (assignedAssessmentsError) {
+        console.error("Error fetching assigned assessments:", assignedAssessmentsError.message);
+      }
+      
+      const assessmentIds = assignedAssessments?.map(aa => aa.assessment_id) || [];
+      let assessmentsDetails = [];
+
+      if (assessmentIds.length > 0) {
+          const { data: assessmentData, error: assessmentError } = await supabase
+              .from("assessments")
+              .select("id, title, type")
+              .in("id", assessmentIds);
+          if (assessmentError) {
+              console.error("Error fetching assessment details:", assessmentError.message);
+          } else {
+              assessmentsDetails = assessmentData || [];
+          }
+      }
+
+      // 4. Get all submissions for these students and "assessments"
+      let studentSubmissions = [];
+      if (assessmentIds.length > 0 && students.length > 0) {
+          const { data: submissionsData, error: submissionsError } = await supabase
+              .from("submissions")
+              .select("student_id, assessment_id, grade, status") // Use assessment_id
+              .eq("section_id", sectionId) 
+              .in("assessment_id", assessmentIds) // Query by assessment_id
+              .in("student_id", students.map(s => s.id));
+
+          if (submissionsError) {
+              console.error("Error fetching submissions:", submissionsError.message);
+          } else {
+              studentSubmissions = submissionsData || [];
+          }
+      }
+
+      // 5. Get Leaderboard data for progress
+      let leaderboardMap = new Map();
+      if (students.length > 0) {
+        const { data: leaderboardData, error: leaderboardError } = await supabase
+          .from("leaderboard")
+          .select("user_id, completion_percentage, score")
+          .in("user_id", students.map(s => s.id))
+          .eq("section_id", sectionId); 
+
+        if (leaderboardError) {
+          console.error("Error fetching leaderboard data:", leaderboardError.message);
+        } else if (leaderboardData) {
+            leaderboardData.forEach(entry => leaderboardMap.set(entry.user_id, entry));
+        }
+      }
+      
+      // 6. Construct Report Data
+      const finalReportData = students.map(student => {
+        const studentQuizScores = {};
+        const studentAssignmentScores = {};
+
+        assessmentsDetails.forEach(assessment => {
+          const submission = studentSubmissions.find(
+            sub => sub.student_id === student.id && sub.assessment_id === assessment.id // Match on assessment_id
+          );
+          const score = submission ? (submission.grade !== null ? Number(submission.grade) : "N/A") : "N/A";
+
+          if (assessment.type.toLowerCase() === 'quiz') {
+            studentQuizScores[assessment.title] = score;
+          } else { 
+            studentAssignmentScores[assessment.title] = score;
+          }
+        });
+
+        const studentLeaderboardEntry = leaderboardMap.get(student.id);
+        const progress = studentLeaderboardEntry ? `${studentLeaderboardEntry.completion_percentage || 0}%` : "0%";
+        
+        let totalObtainedScore = 0;
+        let totalMaxScorePossible = 0; 
+        const maxScorePerItem = 10; // Assuming max score for each item is 10 for status calculation
+
+        Object.values(studentQuizScores).forEach(s => {
+          if (s !== "N/A") { totalObtainedScore += Number(s); totalMaxScorePossible += maxScorePerItem;}
+        });
+        Object.values(studentAssignmentScores).forEach(s => {
+          if (s !== "N/A") { totalObtainedScore += Number(s); totalMaxScorePossible += maxScorePerItem;}
+        });
+        
+        const overallPercentage = totalMaxScorePossible > 0 ? (totalObtainedScore / totalMaxScorePossible) * 100 : 0;
+        let status = "N/A";
+        if (totalMaxScorePossible > 0) {
+          status = overallPercentage >= 50 ? "Pass" : "Fail"; // Example: Pass if >= 50%
+        }
+
+        return {
+          id: student.id,
+          name: `${student.first_name} ${student.last_name}`,
+          quizzes: studentQuizScores,
+          assignments: studentAssignmentScores,
+          progress: progress,
+          status: status,
+        };
+      });
+
+      setReportData(finalReportData);
+    } catch (error) {
+      console.error("Failed to fetch lesson report:", error.message);
+      setReportData([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const paginate = (pageNumber) => {
@@ -72,13 +193,17 @@ const Report = () => {
     const tableRows = [];
   
     reportData.forEach((student, idx) => {
-      const quizzes = Object.entries(student.quizzes)
-        .map(([quiz, score]) => `${quiz}: ${score}`)
-        .join("\n"); 
+      const quizzes = Object.keys(student.quizzes).length > 0 
+        ? Object.entries(student.quizzes)
+            .map(([quiz, score]) => `${quiz}: ${score}`)
+            .join("\n")
+        : "No quizzes";
   
-      const assignments = Object.entries(student.assignments)
-        .map(([ass, score]) => `${ass}: ${score}`)
-        .join("\n");
+      const assignments = Object.keys(student.assignments).length > 0
+        ? Object.entries(student.assignments)
+            .map(([ass, score]) => `${ass}: ${score}`)
+            .join("\n")
+        : "No assignments";
   
       const rowData = [
         idx + 1,
@@ -117,6 +242,10 @@ const Report = () => {
       <Sidebar />
       <main className="report-dashboard-content">
         <h2>{lessonName} | {sectionName} Report</h2>
+        {loading ? (
+          <p className="loading-message">Loading report data...</p>
+        ) : (
+        <>
         <div className="report-table-container">
           <table className="report-table">
             <thead>
@@ -135,14 +264,22 @@ const Report = () => {
                   <td>{indexOfFirstItem + idx + 1}</td>
                   <td>{student.name}</td>
                   <td>
-                    {Object.entries(student.quizzes).map(([quiz, score]) => (
-                      <div key={quiz}>{quiz}: {score}</div>
-                    ))}
+                    {Object.keys(student.quizzes).length > 0 ? (
+                      Object.entries(student.quizzes).map(([quiz, score]) => (
+                        <div key={quiz}>{quiz}: {score}</div>
+                      ))
+                    ) : (
+                      <div>No quizzes</div>
+                    )}
                   </td>
                   <td>
-                    {Object.entries(student.assignments).map(([ass, score]) => (
-                      <div key={ass}>{ass}: {score}</div>
-                    ))}
+                    {Object.keys(student.assignments).length > 0 ? (
+                      Object.entries(student.assignments).map(([ass, score]) => (
+                        <div key={ass}>{ass}: {score}</div>
+                      ))
+                    ) : (
+                      <div>No assignments</div>
+                    )}
                   </td>
                   <td>{student.progress}</td>
                   <td>
@@ -187,6 +324,8 @@ const Report = () => {
             <button className="download-pdf" onClick={generatePDF}>Download PDF</button>
           </div>
         </div>
+        </>
+        )}
       </main>
     </div>
   );

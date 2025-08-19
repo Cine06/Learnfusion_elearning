@@ -3,59 +3,77 @@ import Sidebar from "./Sidebar";
 import { FaSearch } from "react-icons/fa";
 import { supabase } from "../utils/supabaseClient";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from '../context/AuthContext'; // Added import
 import "../styles/sections.css";
 
 const SectionManagement = () => {
   const navigate = useNavigate();
+  const { user } = useAuth(); // Use useAuth hook
   const [sections, setSections] = useState([]);
+  const [teacherInfo, setTeacherInfo] = useState(null); // Added state for teacher info
   const [search, setSearch] = useState("");
   const [searchTerm, setSearchTerm] = useState(""); 
   const [newSection, setNewSection] = useState("");
-  const [selectedSection, setSelectedSection] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    fetchCurrentUser();
-  }, []);
-  
+    if (user?.id) {
+      const fetchTeacherDetails = async () => {
+        const { data, error } = await supabase
+          .from("users")
+          .select("id, role") // Select necessary fields
+          .eq("id", user.id)
+          .eq("role", "Teacher")
+          .single();
+
+        if (error) {
+          console.error("Error fetching teacher details for SectionManagement:", error.message);
+          setTeacherInfo(null);
+        } else if (data) {
+          setTeacherInfo(data);
+        } else {
+          setTeacherInfo(null);
+          console.log("Logged in user is not a teacher or no teacher record found.");
+        }
+      };
+      fetchTeacherDetails();
+    } else {
+      setTeacherInfo(null); // Clear teacherInfo if user logs out
+    }
+  }, [user]);
+
   useEffect(() => {
-    if (currentUser?.id) {
+    if (teacherInfo?.id) { // Check for teacherInfo from the fetched teacher details
       fetchSections();
       const interval = setInterval(fetchSections, 10000);
       return () => clearInterval(interval);
-    }
-  }, [currentUser]);  
-
-  const fetchCurrentUser = () => {
-    const storedUser = JSON.parse(localStorage.getItem("user"));
-  
-    if (storedUser && storedUser.role === "Teacher") {
-      setCurrentUser(storedUser);
     } else {
-      console.error("No valid teacher user found in localStorage.");
+      setSections([]); // Clear sections if not a teacher or teacherInfo is unavailable
     }
-  };
-  
+  }, [teacherInfo]); // Depend on teacherInfo
 
   const fetchSections = async () => {
-    if (!currentUser?.id) return;
+    if (!teacherInfo?.id) {
+      setSections([]); // Ensure sections is empty if no teacherInfo
+      return;
+    }
 
     const { data, error } = await supabase
       .from("sections")
       .select(`
-        id, 
-        section_name, 
-        student_count, 
+        id,
+        section_name,
+        student_count,
         teacher_id,
-        users!sections_teacher_id_fkey(id, first_name, last_name)
+        users!teacher_id_fkey(id, first_name, last_name) // Corrected FK constraint name
       `)
-      .eq("teacher_id", currentUser.id) 
+      .eq("teacher_id", teacherInfo.id) // Use teacherInfo.id
       .order("section_name", { ascending: true });
 
     if (error) {
       console.error("Error fetching sections:", error.message);
+      setSections([]); // Clear sections on error
     } else {
-      setSections(data);
+      setSections(data || []); // Set to data or empty array if data is null/undefined
     }
   };
 
@@ -66,7 +84,7 @@ const SectionManagement = () => {
     }
   
     try {
-      if (!currentUser || currentUser.role !== "Teacher") {
+      if (!teacherInfo || teacherInfo.role !== "Teacher") { // Use teacherInfo
         console.error("Only teachers can add sections.");
         return;
       }
@@ -87,7 +105,7 @@ const SectionManagement = () => {
         .insert([
           {
             section_name: newSection,
-            teacher_id: currentUser.id,
+            teacher_id: teacherInfo.id, // Use teacherInfo.id
           },
         ])
         .select();
@@ -114,7 +132,6 @@ const SectionManagement = () => {
   };
 
   const handleManageSection = (section) => {
-    setSelectedSection(section);
     navigate(`/manage-section/${section.section_name}`);
   };
 

@@ -17,8 +17,9 @@ const SectionManagement = () => {
   useEffect(() => {
     fetchSections();
     fetchTeachers();
-    const interval = setInterval(fetchSections, 10000);
-    return () => clearInterval(interval);
+    // Removed interval polling. Consider a manual refresh button or Supabase real-time for updates.
+    // const interval = setInterval(fetchSections, 10000); 
+    // return () => clearInterval(interval);
   }, []);
 
   const fetchSections = async () => {
@@ -79,9 +80,10 @@ const SectionManagement = () => {
   };
 
   const handleSearch = () => {
-    if (search.trim() === "") {
-      fetchSections();
-    }
+    // Filtering is now done client-side on the fetched sections
+    // If server-side search is desired, this function would make an API call
+    // For now, the client-side filter in the map function handles search.
+    // If search is empty, the filter condition `section.section_name.toLowerCase().includes(search.toLowerCase())` will be true for all.
   };
 
   const handleTeacherChange = (e) => {
@@ -132,6 +134,9 @@ const SectionManagement = () => {
                 Add Section
               </button>
             </div>
+            <button onClick={fetchSections} className="refresh-btn" style={{ marginLeft: '10px', padding: '10px 15px' }}>
+              Refresh List
+            </button>
           </div>
 
           <div className="table-container">

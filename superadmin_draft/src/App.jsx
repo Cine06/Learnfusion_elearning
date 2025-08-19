@@ -15,7 +15,8 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Login />} />
+        {/* Changed default route to AdminDashboard */}
+        <Route path="/" element={<PrivateRoute requiredRole="Admin"><AdminDashboard /></PrivateRoute>} />
         <Route path="/admin-dashboard" element={<PrivateRoute requiredRole="Admin"><AdminDashboard /></PrivateRoute> }/>
         <Route path="/teacher-dashboard"element={<PrivateRoute requiredRole="Teacher"><TeacherDashboard /></PrivateRoute>}/>
         <Route path="/unauthorized" element={<Unauthorized />} />

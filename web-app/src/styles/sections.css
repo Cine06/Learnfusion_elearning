@@ -5,6 +5,9 @@ body {
   color: #333;
   font-family: Arial, sans-serif;
 }
+.modal-content{
+  padding: 100px;
+}
 
 .dashboard-container {
   display: flex;
@@ -31,7 +34,7 @@ body {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: stretch;
-  gap: 15px;
+  gap: 10px;
   margin-bottom: 20px;
 }
 
@@ -68,7 +71,12 @@ body {
 .search-btn:hover {
   background-color: #ffa500;
 }
-
+.lesson-report-controls {
+  margin-left: 500px;
+}
+.lesson-dropdown{
+  margin-right: 10px;
+}
 
 .new-section-input,
 select {
@@ -214,6 +222,98 @@ table tr:hover {
   .add-user-btn {
     width: 100%;
   }
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  width: 90%;
+  max-width: 900px;
+  border-radius: 10px;
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-close-btn {
+  margin-top: 20px;
+  padding: 8px 16px;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.student-details {
+  margin-bottom: 20px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+}
+
+.detail-label {
+  font-weight: bold;
+  width: 150px;
+}
+
+.detail-value {
+  color: #555;
+}
+
+.progress-charts {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.pie-chart {
+  background-color: #f2f2f2;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 200px; 
+  font-size: 16px;
+  color: #555;
+}
+.assign-btnnn{
+  padding: 8px px;
+  background-color: #05642d;
+}
+.student-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: flex-start;
+}
+
+.info-label {
+  font-weight: bold;
+  margin-right: 0px;
+}
+
+.info-value {
+  margin-right: 5px;
+  color: #555;
 }
 
 .footer-controls {

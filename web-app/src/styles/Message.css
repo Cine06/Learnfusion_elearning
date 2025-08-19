@@ -16,6 +16,22 @@
   color: #05642d;
   animation: slideIn 0.6s ease-out;
 }
+.message-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+}
+.message-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin-right: 10px;
+  object-fit: cover;
+}
+.message-details { flex: 1; }
+.message-content-snippet { color: #555; margin: 4px 0; }
+.message-timestamp { font-size: 0.8em; color: #999; }
 
 .message-tabs {
   display: flex;
@@ -55,6 +71,74 @@
   transform-origin: bottom right;
   transition: transform 0.3s ease-in-out;
 }
+.recipient-search-container {
+  position: relative;
+}
+.clear-recipient-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #eee;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 2px 5px;
+  cursor: pointer;
+}
+.recipient-suggestions {
+  list-style: none;
+  padding: 0;
+  margin: 5px 0 0 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: white;
+  position: absolute;
+  width: 100%;
+  z-index: 100;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.recipient-suggestions li {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.recipient-suggestions li:hover {
+  background-color: #f0f0f0;
+}
+.suggestion-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin-right: 8px;
+  object-fit: cover;
+}
+.search-error-message {
+  font-size: 0.9em;
+  color: #777;
+  margin-top: 4px;
+}
+ .conversation-item {
+   cursor: pointer;
+ }
+
+.conversation-item {
+  cursor: pointer;
+}
+.conversation-item:hover {
+  background-color: #f5f5f5;
+}
+.unread-badge {
+  background-color: #05642d; 
+  color: white;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 0.75em;
+  margin-left: 8px;
+  font-weight: bold;
+}
+.unread-message { font-weight: bold; color: #333; }
 
 .message-tabs button.active::after {
   transform: scaleX(1);

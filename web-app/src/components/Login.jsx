@@ -2,10 +2,13 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../utils/supabaseClient";
 import bcrypt from "bcryptjs";
+import { useAuth } from "../context/AuthContext"; 
 import "../styles/Login.css";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { setUser } = useAuth(); 
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
@@ -40,10 +43,7 @@ const Login = () => {
         throw new Error("Only teacher accounts are allowed to log in here.");
       }
 
-      localStorage.setItem("user", JSON.stringify(user));
-      localStorage.setItem("TeacherId", user.id);
-      localStorage.setItem("TeacherName", `${user.first_name} ${user.last_name}`);
-      localStorage.setItem("teacherProfilePic", user.profile_picture || "");
+      setUser(user);
 
       navigate("/teacher-dashboard");
     } catch (err) {

@@ -40,10 +40,8 @@ const Login = () => {
         throw new Error("Student accounts cannot log in here.");
       }
 
+      // Store the essential user object. Avoid storing overly sensitive or large objects.
       localStorage.setItem("user", JSON.stringify(user));
-      localStorage.setItem("adminId", user.id);
-      localStorage.setItem("adminName", `${user.first_name} ${user.last_name}`);
-      localStorage.setItem("adminProfilePic", user.profile_picture || "");
 
       if (user.role === "Admin") {
         navigate("/admin-dashboard");

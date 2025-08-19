@@ -75,6 +75,100 @@ const AssignStudents = () => {
     if (currentPage > 1) setCurrentPage(prev => prev - 1);
   };
 
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (file.type !== "text/csv" && !file.name.endsWith('.csv')) {
+      alert("Please upload a valid CSV file.");
+      event.target.value = null;
+      return;
+    }
+
+    const { data: sectionData, error: sectionError } = await supabase
+      .from("sections")
+      .select("id")
+      .eq("section_name", sectionName)
+      .single();
+
+    if (sectionError || !sectionData) {
+      console.error("Error fetching section:", sectionError);
+      alert("Could not find the section. Please ensure the section exists.");
+      event.target.value = null; 
+      return;
+    }
+    const currentSectionId = sectionData.id;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const text = e.target.result;
+      const rows = text.split(/\r\n|\n/).filter(row => row.trim() !== ''); 
+
+      if (rows.length <= 1) {
+        alert("CSV file is empty or contains only a header.");
+        return;
+      }
+
+      const header = rows[0].split(',').map(h => h.trim().toLowerCase());
+      const expectedHeaders = ["school_id", "email", "first_name", "last_name"];
+      const schoolIdIndex = header.indexOf("school_id");
+      const emailIndex = header.indexOf("email");
+      const firstNameIndex = header.indexOf("first_name");
+      const middleNameIndex = header.indexOf("middle_name"); // Optional
+      const lastNameIndex = header.indexOf("last_name");
+
+      if (schoolIdIndex === -1 || emailIndex === -1 || firstNameIndex === -1 || lastNameIndex === -1) {
+        alert("CSV header is missing required columns: school_id, email, first_name, last_name. Optional: middle_name.");
+        return;
+      }
+
+      const studentsToUpsert = [];
+      for (let i = 1; i < rows.length; i++) {
+        const values = rows[i].split(',').map(v => v.trim());
+        const school_id = values[schoolIdIndex];
+        const email = values[emailIndex];
+        const first_name = values[firstNameIndex];
+        const last_name = values[lastNameIndex];
+        const middle_name = middleNameIndex !== -1 ? values[middleNameIndex] : null;
+
+        if (!school_id || !email || !first_name || !last_name) {
+          console.warn(`Skipping row ${i + 1} in CSV due to missing required fields (school_id, email, first_name, last_name).`);
+          continue; 
+        }
+
+        studentsToUpsert.push({
+          school_id,
+          email,
+          first_name,
+          middle_name: middle_name || null,
+          last_name,
+          role: "Student", // Default role
+          section_id: currentSectionId,
+        });
+      }
+
+      if (studentsToUpsert.length === 0) {
+        alert("No valid student data found in the CSV to process.");
+        return;
+      }
+
+      const { error: upsertError } = await supabase.from("users").upsert(studentsToUpsert, { onConflict: 'school_id' });
+
+      if (upsertError) {
+        console.error("Error upserting students:", upsertError);
+        alert(`Error assigning students via CSV: ${upsertError.message}. Ensure 'school_id' is a unique constraint in your 'users' table if it's used for conflict resolution.`);
+      } else {
+        alert(`${studentsToUpsert.length} student(s) processed from CSV and assigned to section ${sectionName}!`);
+        fetchUnassignedStudents(); // Refresh the list of unassigned students
+      }
+    };
+    reader.onerror = () => {
+      alert("Failed to read the CSV file.");
+    };
+    reader.readAsText(file);
+    event.target.value = null; // Clear the file input for re-selection
+  };
+
   return (
     <div className="assign-students-container">
       <Sidebar />
@@ -138,8 +232,24 @@ const AssignStudents = () => {
       )}
 
       <div className="assign-controls">
-        <button className="assign-btn" onClick={handleAssign}>Assign Selected</button>
-        <button className="cancel-btn" onClick={() => navigate(`/manage-section/${sectionName}`)}>Cancel</button>
+        <input
+          type="file"
+          id="csvUpload"
+          style={{ display: "none" }}
+          accept=".csv"
+          onChange={handleFileUpload}
+        />
+        <button
+          type="button"
+          onClick={() => document.getElementById('csvUpload').click()}
+          className="upload-csv-btn" // You'll need to style this button
+        >
+          Upload CSV & Assign
+        </button>
+        <button className="assign-btn" onClick={handleAssign}>Assign Selected Manually</button>
+        <button className="cancel-btn" onClick={() => navigate(`/manage-section/${sectionName}`)}>
+          Back
+        </button>
       </div>
     </div>
   );
